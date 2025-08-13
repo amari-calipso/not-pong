@@ -7,7 +7,7 @@ The original concept is heavily inspired by https://www.lessmilk.com/almost-pong
 Left click / touch on right side of screen: jump.
 Right click / touch on left side of screen: sprint.
 
-If you just want to play the game, head over to [releases](https://github.com/amari-calipso/not-pong/releases), or try it online at [WIP]()!
+If you just want to play the game, head over to [releases](https://github.com/amari-calipso/not-pong/releases), or try it online at https://amari-calipso.github.io/not-pong/play/!
 
 To run or build from source, clone the repository first, then you have a few options:
 - To run directly, just use `cargo run`.
