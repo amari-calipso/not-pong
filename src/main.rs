@@ -1,4 +1,4 @@
-use std::{cell::OnceCell, cmp::{max, min}, collections::HashMap};
+use std::{cell::OnceCell, cmp::min, collections::HashMap, time::Instant};
 
 use pad::Pad;
 use player::Player;
@@ -95,9 +95,11 @@ const BOMB_PROBABILITY: u16 = if BOMB_TEST { 0 } else { 2500 };
 const BOMB_MIN_DESTROYED_OBSTACLES: usize = 1;
 const BOMB_MAX_DESTROYED_OBSTACLES: usize = 4;
 const SCORE_HITBOX_SIZE: f32 = 2.0;
+
 const EFFECTIVE_PAD_FRMT: f32 = REFERENCE_FRAMERATE / PAD_MOVE_SPEED_MLT;
 const ASPECT_RATIO_H: f32 = INTERNAL_RESOLUTION.x / INTERNAL_RESOLUTION.y;
 const ASPECT_RATIO_W: f32 = INTERNAL_RESOLUTION.y / INTERNAL_RESOLUTION.x;
+const REFERENCE_FRAMETIME: f32 = 1.0 / REFERENCE_FRAMERATE;
 
 mod utils;
 mod explosion;
@@ -369,10 +371,14 @@ impl NotPong {
         self.player.init(&mut self.rng);
 
         let mut rocket_sounds: HashMap<u16, SoundAlias<'_, '_>> = HashMap::new();
+        let mut last_logic_update = Instant::now();
 
         while !rl.window_should_close() {
             let delta_time = rl.get_frame_time() * REFERENCE_FRAMERATE;
-            let logic_update_mod = max(1, rl.get_fps() as u64 / REFERENCE_FRAMERATE as u64);
+            let should_update_logic = last_logic_update.elapsed().as_secs_f32() >= REFERENCE_FRAMETIME;
+            if should_update_logic {
+                last_logic_update = Instant::now();
+            }
 
             let tolerance = {
                 if delta_time > 1.0 {
@@ -477,7 +483,7 @@ impl NotPong {
                         self.bomb.take();
                     }
                 } else if self.player.count >= PLAYER_COUNT_BOMB {
-                    if self.frame_n % logic_update_mod == 0 {
+                    if should_update_logic {
                         if self.rng.random_range(0..=BOMB_PROBABILITY) < 1 {
                             // TODO: we should probably avoid the possibility of spawning the bomb directly on the player, 
                             //       but it's an advantage for them so it's fine for now
@@ -495,7 +501,7 @@ impl NotPong {
                         self.difficulty += 1;
                     }
 
-                    if self.frame_n % logic_update_mod == 0 {
+                    if should_update_logic {
                         if self.rng.random_bool(0.5) {
                             if self.rng.random_range(0..=OBSTACLE_PROBABILITY) < self.difficulty {
                                 if let Some((id, pos)) = self.obstacle_grid.alloc(self.player.pos, &mut self.rng) {
