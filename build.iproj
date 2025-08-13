@@ -1,7 +1,0 @@
-source: "PongPlusPlus.opal",
-copy: {
-    "sounds": folder,
-    "gradient.png": file,
-    "lightning.png": file,
-    "settings.json": file
-}

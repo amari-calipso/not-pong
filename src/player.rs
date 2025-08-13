@@ -1,0 +1,244 @@
+use rand::{rngs::ThreadRng, Rng};
+use raylib::{color::Color, math::{Rectangle, Vector2}, prelude::RaylibDraw};
+
+use crate::{explosion::Explosion, DEFAULT_TOLERANCE, FG, GRAVITY, HOVER_RAINBOW_DELTA, HOVER_RAINBOW_DISTANCE, HOVER_SPACE, INTERNAL_RESOLUTION, JUMP_VELOCITY, DEATH_MAX_INIT_PARTICLE_VELOCITY, PLAYER_SIZE, PLAYER_VELOCITY, RAINBOW_DELTA, SPRINT_VELOCITY};
+
+#[derive(Debug)]
+pub struct Player {
+    hover_angle: f32,
+    
+    pub count: u64,
+    pub playing: bool,
+    pub sprinting: bool,
+    pub dead: bool,
+    rainbow: bool,
+    rainbow_cnt: f32,
+
+    pub pos: Vector2,
+    velocity: Vector2,
+
+    pub explosion: Explosion
+}
+
+impl Player {
+    fn base_velocity(rng: &mut ThreadRng) -> Vector2 {
+        if rng.random_bool(0.5) {
+            PLAYER_VELOCITY
+        } else {
+            -PLAYER_VELOCITY
+        }
+    }
+
+    pub fn new() -> Self {
+        let pos = Vector2 { 
+            x: INTERNAL_RESOLUTION.x / 2.0, 
+            y: INTERNAL_RESOLUTION.y / 2.0 
+        };
+
+        Self {
+            hover_angle: 0.0,
+            count: 0,
+            playing: false,
+            sprinting: false,
+            dead: false,
+            rainbow: false,
+            rainbow_cnt: 0.0,
+            pos,
+            velocity: Vector2::zero(),
+            explosion: Explosion::new(pos),
+        }  
+    }
+
+    pub fn init(&mut self, rng: &mut ThreadRng) {
+        self.velocity = Self::base_velocity(rng);
+    }
+
+    fn reset_pos(&mut self) {
+        self.pos = Vector2 { 
+            x: INTERNAL_RESOLUTION.x / 2.0, 
+            y: INTERNAL_RESOLUTION.y / 2.0 
+        };
+    }
+
+    pub fn reset(&mut self, rng: &mut ThreadRng) {
+        self.hover_angle = 0.0;
+        self.count = 0;
+        self.playing = false;
+        self.dead = false;
+        self.sprinting = false;
+        self.rainbow = false;
+        self.rainbow_cnt = 0.0;
+
+        self.velocity = Self::base_velocity(rng);
+        self.reset_pos();
+    }
+
+    pub fn sprint_on(&mut self) {
+        self.sprinting = true;
+        self.velocity.y = 0.0;
+    }
+
+    pub fn sprint_off(&mut self) {
+        self.sprinting = false;
+    }
+
+    pub fn start(&mut self, rng: &mut ThreadRng) {
+        self.playing = true;
+        self.reset_pos();
+        self.velocity = Self::base_velocity(rng);
+    }
+
+    pub fn invert(&mut self) {
+        self.count += 1;
+        self.velocity.x = -self.velocity.x;
+    }
+
+    pub fn jump(&mut self, rng: &mut ThreadRng) {
+        if !self.playing {
+            self.start(rng);
+        }
+
+        if !self.sprinting {
+            self.velocity.y = -JUMP_VELOCITY;
+        }
+    }
+
+    pub fn is_dead(&mut self, rng: &mut ThreadRng) -> bool {
+        if self.dead {
+            self.explosion.explode_with_pos(
+                self.pos, 
+                DEATH_MAX_INIT_PARTICLE_VELOCITY, 
+                false, rng
+            );
+
+            self.reset(rng);
+            return true;
+        }
+
+        if self.pos.x <= 0.0 {
+            self.explosion.explode_with_pos(
+                Vector2 { x: 0.0, y: self.pos.y }, 
+                DEATH_MAX_INIT_PARTICLE_VELOCITY, 
+                false, rng
+            );
+        } else if self.pos.x + PLAYER_SIZE >= INTERNAL_RESOLUTION.x {
+            self.explosion.explode_with_pos(
+                Vector2 { 
+                    x: INTERNAL_RESOLUTION.x - 1.0, 
+                    y: self.pos.y 
+                }, 
+                DEATH_MAX_INIT_PARTICLE_VELOCITY,
+                false, rng
+            );
+        } else if self.pos.y <= 0.0 {
+            self.explosion.explode_with_pos(
+                Vector2 { x: self.pos.x, y: 0.0 }, 
+                DEATH_MAX_INIT_PARTICLE_VELOCITY, 
+                false, rng
+            );
+        } else if self.pos.y + PLAYER_SIZE >= INTERNAL_RESOLUTION.y {
+            self.explosion.explode_with_pos(
+                Vector2 { 
+                    x: self.pos.x, 
+                    y: INTERNAL_RESOLUTION.y - 1.0 
+                }, 
+                DEATH_MAX_INIT_PARTICLE_VELOCITY, 
+                false, rng
+            );
+        } else {
+            return false;
+        }
+
+        self.reset(rng);
+        true
+    }
+
+    fn dir(&self, x: f32) -> f32 {
+        if self.velocity.x > 0.0 {
+            x
+        } else {
+            -x
+        }
+    }
+
+    pub fn update(&mut self, delta_time: f32, rng: &mut ThreadRng, draw: &mut impl RaylibDraw) {
+        if self.explosion.is_alive() {
+            self.explosion.update(delta_time);
+            self.explosion.show(draw);
+        } else {
+            if self.playing {
+                if self.sprinting {
+                    self.pos.x += self.dir(SPRINT_VELOCITY) * delta_time;
+                } else {
+                    self.velocity += GRAVITY * delta_time;
+                    self.pos += self.velocity * delta_time;
+                }
+
+                if self.sprinting {
+                    draw.draw_rectangle(
+                        self.pos.x as i32, self.pos.y as i32, 
+                        PLAYER_SIZE as i32, PLAYER_SIZE as i32, 
+                        Color::color_from_hsv(self.rainbow_cnt * 360.0, 1.0, 1.0)
+                    );
+
+                    self.rainbow_cnt += RAINBOW_DELTA * delta_time;
+                    if self.rainbow_cnt > 1.0 {
+                        self.rainbow_cnt = 0.0;
+                    }
+                } else {
+                    draw.draw_rectangle(
+                        self.pos.x as i32, self.pos.y as i32, 
+                        PLAYER_SIZE as i32, PLAYER_SIZE as i32, 
+                        FG
+                    );
+                }
+            } else {
+                // this shouldn't happen, but it happened once and i have no idea why
+                if self.velocity.x == 0.0 {
+                    self.velocity.x = Self::base_velocity(rng).x;
+                }
+
+                if self.pos.y > INTERNAL_RESOLUTION.y / 2.0 + HOVER_SPACE {
+                    self.velocity.y = -JUMP_VELOCITY;
+                }
+
+                if self.pos.x + PLAYER_SIZE + DEFAULT_TOLERANCE >= INTERNAL_RESOLUTION.x || self.pos.x <= DEFAULT_TOLERANCE {
+                    self.velocity.x = -self.velocity.x;
+                }
+
+                self.velocity += GRAVITY * delta_time;
+                self.pos += self.velocity * delta_time;
+
+                let mut color0 = Color::color_from_hsv(self.rainbow_cnt * 360.0, 1.0, 1.0);
+                let mut color1 = Color::color_from_hsv((self.rainbow_cnt - HOVER_RAINBOW_DISTANCE) * 360.0, 1.0, 1.0);
+
+                if rng.random_bool(0.5) {
+                    std::mem::swap(&mut color0, &mut color1);
+                }
+
+                let color2;
+                let color3;
+                if rng.random_bool(0.5) {
+                    color2 = color0;
+                    color3 = color1;
+                } else {
+                    color2 = color1;
+                    color3 = color0;
+                }
+
+                draw.draw_rectangle_gradient_ex(
+                    Rectangle::new(
+                        self.pos.x, self.pos.y, 
+                        PLAYER_SIZE, PLAYER_SIZE, 
+                    ),
+                    color0, color1, color2, color3,
+                );
+
+                self.rainbow_cnt += HOVER_RAINBOW_DELTA * delta_time;
+                if self.rainbow_cnt > 1.0 {
+                    self.rainbow_cnt = 0.0;
+                }
+            }
+        }
+    }
+}
