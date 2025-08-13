@@ -1,0 +1,32 @@
+name: Publish for web
+
+on: push
+
+jobs:
+  test:
+    name: Publish for web
+    runs-on: ubuntu-lateset
+    strategy:
+      matrix:
+        include:
+          - os: ubuntu-latest
+            rust_toolchain: stable
+    steps:
+        - uses: actions/checkout@v4
+
+        - name: Setup Rust toolchain
+          uses: hecrj/setup-rust-action@v1
+          with:
+            rust-version: stable
+
+        - name: Produce webpage
+          run: rustc dev_util.rs -o dev_util && ./dev_util --release-wasm
+
+        - name: Rename dist folder
+          run: mv dist www
+
+        - uses: stefanzweifel/git-auto-commit-action@v5
+          with:
+            branch: github-pages
+            commit_user_name: GitHub Actions
+            commit_message: Build webpage for GitHub Pages
