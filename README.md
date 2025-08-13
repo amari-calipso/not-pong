@@ -17,7 +17,7 @@ To run or build from source, clone the repository first, then you have a few opt
 - To package a release, (a dist folder containing the release will be created, note that any previously existing dist folders will be deleted): 
     - If releasing for desktop platforms:
         - Unix-like: `rustc dev_util.rs -o dev_util && ./dev_util --release`
-            - Windows: `rustc dev_util.rs -o dev_util.exe && dev_util --release`
+        - Windows: `rustc dev_util.rs -o dev_util.exe && dev_util --release`
     - If releasing for web:
         - Unix-like: `rustc dev_util.rs -o dev_util && ./dev_util --release-wasm`
         - Windows: `rustc dev_util.rs -o dev_util.exe && dev_util --release-wasm`
