@@ -13,6 +13,19 @@ jobs:
             rust_toolchain: stable
     steps:
         - uses: actions/checkout@v4
+          with:
+            ref: github-pages
+
+        - name: Delete web folder
+          run: rm -rf play
+
+        - uses: stefanzweifel/git-auto-commit-action@v5
+          with:
+            branch: github-pages
+            commit_user_name: GitHub Actions
+            commit_message: Remove web folder
+
+        - uses: actions/checkout@v4
 
         - uses: mymindstorm/setup-emsdk@v14
 
@@ -35,4 +48,3 @@ jobs:
             branch: github-pages
             commit_user_name: GitHub Actions
             commit_message: Build webpage for GitHub Pages
-            push_options: --force
