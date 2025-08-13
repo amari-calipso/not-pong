@@ -5,7 +5,7 @@ on: push
 jobs:
   test:
     name: Publish for web
-    runs-on: ubuntu-lateset
+    runs-on: ubuntu-latest
     strategy:
       matrix:
         include:
