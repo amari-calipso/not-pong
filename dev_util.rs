@@ -9,15 +9,15 @@ const WASM_SERVER_PORT: &str = "8080";
 fn get_filename(target: &Option<String>) -> &str {
     if let Some(target) = &target {
         if target.contains("-windows-") {
-            "univ.exe"
+            "not-pong.exe"
         } else {
-            "univ"
+            "not-pong"
         }
     } else {
         if cfg!(windows) {
-            "univ.exe"
+            "not-pong.exe"
         } else {
-            "univ"
+            "not-pong"
         }
     }
 }
