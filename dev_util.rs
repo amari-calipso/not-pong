@@ -9,15 +9,15 @@ const WASM_SERVER_PORT: &str = "8080";
 fn get_filename(target: &Option<String>) -> &str {
     if let Some(target) = &target {
         if target.contains("-windows-") {
-            "univ.exe"
+            "not-pong.exe"
         } else {
-            "univ"
+            "not-pong"
         }
     } else {
         if cfg!(windows) {
-            "univ.exe"
+            "not-pong.exe"
         } else {
-            "univ"
+            "not-pong"
         }
     }
 }
@@ -85,8 +85,8 @@ fn release_wasm() -> Result<PathBuf, Error> {
             "EMCC_CFLAGS", 
             concat!(
                 "-O3 -sUSE_GLFW=3 -sFORCE_FILESYSTEM=1 -sALLOW_MEMORY_GROWTH=1 -flto ",
-                "-sASSERTIONS=1 -sWASM=1 -sASYNCIFY -sGL_ENABLE_GET_PROC_ADDRESS=1 --no-entry ",
-                "-s EXPORTED_RUNTIME_METHODS=HEAPF32"
+                "-sASSERTIONS=1 -sWASM=1 -sASYNCIFY -sGL_ENABLE_GET_PROC_ADDRESS=1 ",
+                "--no-entry -s EXPORTED_RUNTIME_METHODS=HEAPF32"
             )
         );
     }
