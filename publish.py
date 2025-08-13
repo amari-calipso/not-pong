@@ -23,7 +23,7 @@ def pack(cmd: str, win_cmd: str, name: str):
     if code != 0 or not os.path.exists("dist"): sys.exit(1)
 
     os.mkdir("tmp")
-    shutil.copytree("dist", os.path.join("tmp", "UniV"))
+    shutil.copytree("dist", os.path.join("tmp", "NotPong"))
     shutil.make_archive(
         os.path.join("publish", f"{name}-{ARCH}-{PLATFORM}"), 
         "zip", "tmp"
