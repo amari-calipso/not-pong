@@ -21,7 +21,7 @@ Tap -> jump
 Swipe left/right -> toggle sprint
 
 ## Running the game
-If you just want to play the game, head over to [releases](https://github.com/amari-calipso/not-pong/releases), or try it online at <https://amari-calipso.github.io/not-pong/play/!>
+If you just want to play the game, head over to [releases](https://github.com/amari-calipso/not-pong/releases), or try it online at <https://amari-calipso.github.io/not-pong/play/>!
 
 To run or build from source, clone the repository first, then you have a few options:
 - To run directly, just use `cargo run`.
