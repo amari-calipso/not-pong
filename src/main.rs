@@ -1,9 +1,9 @@
-use std::{cell::OnceCell, cmp::{max, min}, collections::HashMap};
+use std::{cell::OnceCell, cmp::min, collections::HashMap, time::Instant};
 
 use pad::Pad;
 use player::Player;
 use rand::{rngs::ThreadRng, seq::IteratorRandom, Rng};
-use raylib::{audio::{RaylibAudio, Sound, SoundAlias}, color::Color, ffi::{KeyboardKey, MouseButton, TraceLogLevel}, math::{Rectangle, Vector2}, prelude::{RaylibDraw, RaylibTextureModeExt}, texture::{Image, RenderTexture2D}, window::{get_current_monitor, get_monitor_refresh_rate}, RaylibHandle};
+use raylib::{audio::{RaylibAudio, Sound, SoundAlias}, color::Color, ffi::{Gesture, KeyboardKey, MouseButton, TraceLogLevel}, math::{Rectangle, Vector2}, prelude::{RaylibDraw, RaylibTextureModeExt}, texture::{Image, RenderTexture2D}, window::{get_current_monitor, get_monitor_refresh_rate}, RaylibHandle};
 
 use crate::{bomb::Bomb, explosion::Explosion, obstacle::{explosion::ObstacleExplosion, rock::Rock, rocket::{self, Rocket}, AnyObstacle, Obstacle}, obstacle_grid::ObstacleGrid, utils::vec2};
 
@@ -95,9 +95,11 @@ const BOMB_PROBABILITY: u16 = if BOMB_TEST { 0 } else { 2500 };
 const BOMB_MIN_DESTROYED_OBSTACLES: usize = 1;
 const BOMB_MAX_DESTROYED_OBSTACLES: usize = 4;
 const SCORE_HITBOX_SIZE: f32 = 2.0;
+
 const EFFECTIVE_PAD_FRMT: f32 = REFERENCE_FRAMERATE / PAD_MOVE_SPEED_MLT;
 const ASPECT_RATIO_H: f32 = INTERNAL_RESOLUTION.x / INTERNAL_RESOLUTION.y;
 const ASPECT_RATIO_W: f32 = INTERNAL_RESOLUTION.y / INTERNAL_RESOLUTION.x;
+const REFERENCE_FRAMETIME: f32 = 1.0 / REFERENCE_FRAMERATE;
 
 mod utils;
 mod explosion;
@@ -195,40 +197,26 @@ impl NotPong {
         if self.hit_cooldown >= HIT_COOLDOWN {
             self.hit_cooldown = 0.0;
             hit_sound.play();
-            hit_sound.play();
-            hit_sound.play();
-            hit_sound.play();
-            hit_sound.play();
             self.player.invert();
         }
     }
 
     fn handle_keys(&mut self, rl: &RaylibHandle) {
-        let mut jump = false;
-        let mut sprinting = false;
-
-        // TODO: allow swapping left and right
-        let width = rl.get_screen_width() as f32;
-
-        for i in 0 .. rl.get_touch_point_count() {
-            let pos = rl.get_touch_position(i);
-            if pos.x > width / 2.0 {
-                jump = true;
-            } else {
-                sprinting = true;
-            }
-        }
-
         if !self.player.sprinting && !self.player.explosion.is_alive() {
             if rl.is_key_pressed(KeyboardKey::KEY_RIGHT) || 
                rl.is_key_pressed(KeyboardKey::KEY_LEFT) || 
-               rl.is_mouse_button_pressed(MouseButton::MOUSE_BUTTON_RIGHT)
+               rl.is_key_pressed(KeyboardKey::KEY_Z) || 
+               rl.is_mouse_button_pressed(MouseButton::MOUSE_BUTTON_RIGHT) ||
+               rl.is_gesture_detected(Gesture::GESTURE_SWIPE_LEFT) ||
+               rl.is_gesture_detected(Gesture::GESTURE_SWIPE_RIGHT)
             {
                 if self.player.playing {
                     self.player_sprint_on();
                 }
-            } else if jump || rl.is_key_pressed(KeyboardKey::KEY_UP) || 
-                      rl.is_mouse_button_pressed(MouseButton::MOUSE_BUTTON_LEFT)
+            } else if rl.is_key_pressed(KeyboardKey::KEY_UP) || 
+                      rl.is_key_pressed(KeyboardKey::KEY_SPACE) || 
+                      rl.is_mouse_button_pressed(MouseButton::MOUSE_BUTTON_LEFT) ||
+                      rl.is_gesture_detected(Gesture::GESTURE_TAP)
             {
                 self.player.jump(&mut self.rng);
             }
@@ -236,10 +224,13 @@ impl NotPong {
             return;
         }
 
-        if !sprinting && self.player.playing && self.player.sprinting {
+        if self.player.playing && self.player.sprinting {
             if rl.is_key_released(KeyboardKey::KEY_RIGHT) || 
                rl.is_key_released(KeyboardKey::KEY_LEFT) || 
-               rl.is_mouse_button_released(MouseButton::MOUSE_BUTTON_RIGHT) 
+               rl.is_key_released(KeyboardKey::KEY_Z) || 
+               rl.is_mouse_button_released(MouseButton::MOUSE_BUTTON_RIGHT) ||
+               rl.is_gesture_detected(Gesture::GESTURE_SWIPE_LEFT) ||
+               rl.is_gesture_detected(Gesture::GESTURE_SWIPE_RIGHT)
             {
                 self.player_sprint_off();
             }
@@ -369,10 +360,14 @@ impl NotPong {
         self.player.init(&mut self.rng);
 
         let mut rocket_sounds: HashMap<u16, SoundAlias<'_, '_>> = HashMap::new();
+        let mut last_logic_update = Instant::now();
 
         while !rl.window_should_close() {
             let delta_time = rl.get_frame_time() * REFERENCE_FRAMERATE;
-            let logic_update_mod = max(1, rl.get_fps() as u64 / REFERENCE_FRAMERATE as u64);
+            let should_update_logic = last_logic_update.elapsed().as_secs_f32() >= REFERENCE_FRAMETIME;
+            if should_update_logic {
+                last_logic_update = Instant::now();
+            }
 
             let tolerance = {
                 if delta_time > 1.0 {
@@ -477,7 +472,7 @@ impl NotPong {
                         self.bomb.take();
                     }
                 } else if self.player.count >= PLAYER_COUNT_BOMB {
-                    if self.frame_n % logic_update_mod == 0 {
+                    if should_update_logic {
                         if self.rng.random_range(0..=BOMB_PROBABILITY) < 1 {
                             // TODO: we should probably avoid the possibility of spawning the bomb directly on the player, 
                             //       but it's an advantage for them so it's fine for now
@@ -495,7 +490,7 @@ impl NotPong {
                         self.difficulty += 1;
                     }
 
-                    if self.frame_n % logic_update_mod == 0 {
+                    if should_update_logic {
                         if self.rng.random_bool(0.5) {
                             if self.rng.random_range(0..=OBSTACLE_PROBABILITY) < self.difficulty {
                                 if let Some((id, pos)) = self.obstacle_grid.alloc(self.player.pos, &mut self.rng) {
@@ -545,11 +540,7 @@ impl NotPong {
                     }
 
                     for j in 0 .. self.obstacles.len() {
-                        if j == i {
-                            continue;
-                        }
-
-                        if !self.obstacles[j].can_collide() {
+                        if j == i || !self.obstacles[j].can_collide() {
                             continue;
                         }
 
@@ -564,6 +555,7 @@ impl NotPong {
                         };
 
                         if collides {
+                            pew_sound.play();
                             self.obstacles[i].kill();
                             self.obstacles[j].kill();
                             let mut explosion = Explosion::new(self.obstacles[i].pos());
