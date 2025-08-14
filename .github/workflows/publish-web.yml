@@ -1,6 +1,9 @@
 name: Publish for web
 
-on: push
+on:
+  push:
+    tags:
+      - "*"
 
 jobs:
   test:
@@ -12,6 +15,17 @@ jobs:
           - os: ubuntu-latest
             rust_toolchain: stable
     steps:
+        - name: Setup Emscripten
+          uses: mymindstorm/setup-emsdk@v14
+
+        - name: Setup Rust toolchain
+          uses: hecrj/setup-rust-action@v1
+          with:
+            rust-version: stable
+
+        - name: Install WASM target
+          run: rustup target add wasm32-unknown-emscripten
+        
         - uses: actions/checkout@v4
           with:
             ref: github-pages
@@ -26,16 +40,6 @@ jobs:
             commit_message: Remove web folder
 
         - uses: actions/checkout@v4
-
-        - uses: mymindstorm/setup-emsdk@v14
-
-        - name: Setup Rust toolchain
-          uses: hecrj/setup-rust-action@v1
-          with:
-            rust-version: stable
-
-        - name: Install WASM target
-          run: rustup target add wasm32-unknown-emscripten
 
         - name: Produce webpage
           run: rustc dev_util.rs -o dev_util && ./dev_util --release-wasm

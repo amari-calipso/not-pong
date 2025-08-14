@@ -1,3 +1,5 @@
 mod dev_util;
 
-fn main() {}
+fn main() {
+    static_vcruntime::metabuild();
+}
