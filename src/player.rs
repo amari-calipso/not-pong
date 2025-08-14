@@ -193,9 +193,13 @@ impl Player {
                     );
                 }
             } else {
-                // this shouldn't happen, but it happened once and i have no idea why
-                if self.velocity.x == 0.0 {
-                    self.velocity.x = Self::base_velocity(rng).x;
+                // this shouldn't happen, but it does and i have no idea why
+                if self.velocity.x as i32 == 0 {
+                    if self.pos.x < INTERNAL_RESOLUTION.x / 2.0 {
+                        self.velocity = PLAYER_VELOCITY;
+                    } else {
+                        self.velocity = -PLAYER_VELOCITY;
+                    }
                 }
 
                 if self.pos.y > INTERNAL_RESOLUTION.y / 2.0 + HOVER_SPACE {
