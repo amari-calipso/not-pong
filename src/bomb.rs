@@ -67,6 +67,16 @@ impl Bomb {
         let side_size = self.angle.sin() * HALF_SIZE;
         let center_x = self.pos.x + HALF_SIZE;
 
+        let v0 = Vector2 {
+            x: center_x,
+            y: self.pos.y
+        };
+
+        let v1 = Vector2 {
+            x: center_x,
+            y: self.pos.y + BOMB_SIZE
+        };
+
         let vl = Vector2 {
             x: center_x - side_size,
             y: self.pos.y + HALF_SIZE
@@ -78,45 +88,11 @@ impl Bomb {
         };
 
         if side_size < 0.0 {
-            draw.draw_triangle(
-                Vector2 {
-                    x: center_x,
-                    y: self.pos.y
-                }, 
-                vr,
-                vl,
-                color
-            );
-
-            draw.draw_triangle(
-                Vector2 {
-                    x: center_x,
-                    y: self.pos.y + BOMB_SIZE
-                }, 
-                vl,
-                vr,
-                color
-            );
+            draw.draw_triangle(v0, vr, vl, color);
+            draw.draw_triangle(v1, vl, vr, color);
         } else {
-            draw.draw_triangle(
-                Vector2 {
-                    x: center_x,
-                    y: self.pos.y
-                }, 
-                vl,
-                vr,
-                color
-            );
-
-            draw.draw_triangle(
-                Vector2 {
-                    x: center_x,
-                    y: self.pos.y + BOMB_SIZE
-                }, 
-                vr,
-                vl,
-                color
-            );
+            draw.draw_triangle(v0, vl, vr, color);
+            draw.draw_triangle(v1, vr, vl, color);
         }
         
         self.angle += BOMB_ANGLE_INCREMENT * delta_time;

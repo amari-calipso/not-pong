@@ -3,7 +3,7 @@ use std::{cell::OnceCell, cmp::min, collections::HashMap, time::Instant};
 use pad::Pad;
 use player::Player;
 use rand::{rngs::ThreadRng, seq::IteratorRandom, Rng};
-use raylib::{audio::{RaylibAudio, Sound, SoundAlias}, color::Color, ffi::{KeyboardKey, MouseButton, TraceLogLevel}, math::{Rectangle, Vector2}, prelude::{RaylibDraw, RaylibTextureModeExt}, texture::{Image, RenderTexture2D}, window::{get_current_monitor, get_monitor_refresh_rate}, RaylibHandle};
+use raylib::{audio::{RaylibAudio, Sound, SoundAlias}, color::Color, ffi::{Gesture, KeyboardKey, MouseButton, TraceLogLevel}, math::{Rectangle, Vector2}, prelude::{RaylibDraw, RaylibTextureModeExt}, texture::{Image, RenderTexture2D}, window::{get_current_monitor, get_monitor_refresh_rate}, RaylibHandle};
 
 use crate::{bomb::Bomb, explosion::Explosion, obstacle::{explosion::ObstacleExplosion, rock::Rock, rocket::{self, Rocket}, AnyObstacle, Obstacle}, obstacle_grid::ObstacleGrid, utils::vec2};
 
@@ -197,40 +197,26 @@ impl NotPong {
         if self.hit_cooldown >= HIT_COOLDOWN {
             self.hit_cooldown = 0.0;
             hit_sound.play();
-            hit_sound.play();
-            hit_sound.play();
-            hit_sound.play();
-            hit_sound.play();
             self.player.invert();
         }
     }
 
     fn handle_keys(&mut self, rl: &RaylibHandle) {
-        let mut jump = false;
-        let mut sprinting = false;
-
-        // TODO: allow swapping left and right
-        let width = rl.get_screen_width() as f32;
-
-        for i in 0 .. rl.get_touch_point_count() {
-            let pos = rl.get_touch_position(i);
-            if pos.x > width / 2.0 {
-                jump = true;
-            } else {
-                sprinting = true;
-            }
-        }
-
         if !self.player.sprinting && !self.player.explosion.is_alive() {
             if rl.is_key_pressed(KeyboardKey::KEY_RIGHT) || 
                rl.is_key_pressed(KeyboardKey::KEY_LEFT) || 
-               rl.is_mouse_button_pressed(MouseButton::MOUSE_BUTTON_RIGHT)
+               rl.is_key_pressed(KeyboardKey::KEY_Z) || 
+               rl.is_mouse_button_pressed(MouseButton::MOUSE_BUTTON_RIGHT) ||
+               rl.is_gesture_detected(Gesture::GESTURE_SWIPE_LEFT) ||
+               rl.is_gesture_detected(Gesture::GESTURE_SWIPE_RIGHT)
             {
                 if self.player.playing {
                     self.player_sprint_on();
                 }
-            } else if jump || rl.is_key_pressed(KeyboardKey::KEY_UP) || 
-                      rl.is_mouse_button_pressed(MouseButton::MOUSE_BUTTON_LEFT)
+            } else if rl.is_key_pressed(KeyboardKey::KEY_UP) || 
+                      rl.is_key_pressed(KeyboardKey::KEY_SPACE) || 
+                      rl.is_mouse_button_pressed(MouseButton::MOUSE_BUTTON_LEFT) ||
+                      rl.is_gesture_detected(Gesture::GESTURE_TAP)
             {
                 self.player.jump(&mut self.rng);
             }
@@ -238,10 +224,13 @@ impl NotPong {
             return;
         }
 
-        if !sprinting && self.player.playing && self.player.sprinting {
+        if self.player.playing && self.player.sprinting {
             if rl.is_key_released(KeyboardKey::KEY_RIGHT) || 
                rl.is_key_released(KeyboardKey::KEY_LEFT) || 
-               rl.is_mouse_button_released(MouseButton::MOUSE_BUTTON_RIGHT) 
+               rl.is_key_released(KeyboardKey::KEY_Z) || 
+               rl.is_mouse_button_released(MouseButton::MOUSE_BUTTON_RIGHT) ||
+               rl.is_gesture_detected(Gesture::GESTURE_SWIPE_LEFT) ||
+               rl.is_gesture_detected(Gesture::GESTURE_SWIPE_RIGHT)
             {
                 self.player_sprint_off();
             }
@@ -551,11 +540,7 @@ impl NotPong {
                     }
 
                     for j in 0 .. self.obstacles.len() {
-                        if j == i {
-                            continue;
-                        }
-
-                        if !self.obstacles[j].can_collide() {
+                        if j == i || !self.obstacles[j].can_collide() {
                             continue;
                         }
 
@@ -570,6 +555,7 @@ impl NotPong {
                         };
 
                         if collides {
+                            pew_sound.play();
                             self.obstacles[i].kill();
                             self.obstacles[j].kill();
                             let mut explosion = Explosion::new(self.obstacles[i].pos());
