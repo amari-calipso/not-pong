@@ -1,5 +1,5 @@
 /*
-Copyright (C) 2022-2025 Amari Calipso
+Copyright (C) 2025 Amari Calipso
 
 This file is part of !pong.
 

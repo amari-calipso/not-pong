@@ -3,7 +3,7 @@
 // Windows: rustc dev_util.rs -o dev_util.exe && dev_util <command>
 
 /*
-Copyright (C) 2022-2025 Amari Calipso
+Copyright (C) 2025 Amari Calipso
 
 This file is part of !pong.
 
