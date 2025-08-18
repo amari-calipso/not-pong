@@ -31,6 +31,8 @@ const INTERNAL_RESOLUTION: Vector2 = Vector2 { x: 320.0, y: 180.0 };
 const COLLISION_TEST: bool = false; // default: false
 const START_OBSTACLES_EARLY: bool = COLLISION_TEST || false; // default: false
 const BOMB_TEST: bool = false; // default: false
+const ROCKETS_TEST: bool = false; // default: false
+const NOCLIP: bool = ROCKETS_TEST || COLLISION_TEST || false; // default: false
 const ROCKETS: bool = true; // default: true
 
 const INTRO_TEXT: &str = "JUMP TO START";
@@ -510,18 +512,22 @@ impl NotPong {
                     }
 
                     if should_update_logic {
-                        if self.rng.random_bool(0.5) {
-                            if self.rng.random_range(0..=OBSTACLE_PROBABILITY) < self.difficulty {
-                                if let Some((id, pos)) = self.obstacle_grid.alloc(self.player.pos, &mut self.rng) {
-                                    self.obstacles.push(Rock::new(&mut self.rng, id, pos).into());
-                                } else if ROCKETS { // if you can't allocate a rock, make a rocket instead
-                                    self.make_rocket(&mut rocket_sounds, &rocket_sound);
-                                }
-                            }
+                        if ROCKETS_TEST {
+                            self.make_rocket(&mut rocket_sounds, &rocket_sound);
                         } else {
-                            if ROCKETS {
+                            if self.rng.random_bool(0.5) {
                                 if self.rng.random_range(0..=OBSTACLE_PROBABILITY) < self.difficulty {
-                                    self.make_rocket(&mut rocket_sounds, &rocket_sound);
+                                    if let Some((id, pos)) = self.obstacle_grid.alloc(self.player.pos, &mut self.rng) {
+                                        self.obstacles.push(Rock::new(&mut self.rng, id, pos).into());
+                                    } else if ROCKETS { // if you can't allocate a rock, make a rocket instead
+                                        self.make_rocket(&mut rocket_sounds, &rocket_sound);
+                                    }
+                                }
+                            } else {
+                                if ROCKETS {
+                                    if self.rng.random_range(0..=OBSTACLE_PROBABILITY) < self.difficulty {
+                                        self.make_rocket(&mut rocket_sounds, &rocket_sound);
+                                    }
                                 }
                             }
                         }
@@ -546,7 +552,7 @@ impl NotPong {
                         }
                     }
                     
-                    if !COLLISION_TEST {
+                    if !NOCLIP {
                         if self.obstacles[i].collides_object(self.player.pos, vec2(PLAYER_SIZE, PLAYER_SIZE)) {
                             self.player.dead = true;
                             break;

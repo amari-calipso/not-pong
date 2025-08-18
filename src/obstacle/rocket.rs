@@ -82,9 +82,9 @@ impl Obstacle for Rocket {
 
         match self.base {
             Base::Left => self.pos.x < INTERNAL_RESOLUTION.x,
-            Base::Right => self.pos.x > 0.0,
+            Base::Right => self.pos.x + self.size.x > 0.0,
             Base::Top => self.pos.y < INTERNAL_RESOLUTION.y,
-            Base::Bottom => self.pos.y > 0.0,
+            Base::Bottom => self.pos.y + self.size.y > 0.0,
         }
     }
 
