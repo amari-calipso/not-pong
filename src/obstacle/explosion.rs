@@ -41,8 +41,8 @@ impl Obstacle for ObstacleExplosion {
         self.0.is_alive()
     }
 
-    fn update(&mut self, delta_time:f32, _rng: &mut ThreadRng, draw: &mut impl RaylibDraw) {
-        self.0.update(delta_time);
+    fn update(&mut self, _delta_time: f32, in_reference_frame: bool, _rng: &mut ThreadRng, draw: &mut impl RaylibDraw) {
+        self.0.update(in_reference_frame);
         self.0.show(draw);
     }
 

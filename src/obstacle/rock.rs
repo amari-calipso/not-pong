@@ -70,7 +70,7 @@ impl Obstacle for Rock {
         self.alpha > 0
     }
 
-    fn update(&mut self, delta_time: f32, _rng: &mut ThreadRng, draw: &mut impl RaylibDraw) {
+    fn update(&mut self, delta_time: f32, _in_reference_frame: bool, _rng: &mut ThreadRng, draw: &mut impl RaylibDraw) {
         if self.lifespan <= 0.0 {
             self.step = (-(OBSTACLE_DELTA_ALPHA as f32) * delta_time) as i8;
         }

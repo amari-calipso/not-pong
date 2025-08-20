@@ -17,7 +17,7 @@ You should have received a copy of the GNU Affero General Public License
 along with !pong.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-use std::{cell::OnceCell, cmp::min, collections::HashMap, time::Instant};
+use std::{cell::OnceCell, collections::HashMap, time::Instant};
 
 use pad::Pad;
 use player::Player;
@@ -34,6 +34,8 @@ const BOMB_TEST: bool = false; // default: false
 const ROCKETS_TEST: bool = false; // default: false
 const NOCLIP: bool = ROCKETS_TEST || COLLISION_TEST || false; // default: false
 const ROCKETS: bool = true; // default: true
+const SHOW_FPS: bool = false; // default: false
+const UNLIMITED_FPS: bool = false; // default: false
 
 const INTRO_TEXT: &str = "JUMP TO START";
 const INTRO_TEXT_HEIGHT: i32 = 10;
@@ -68,7 +70,7 @@ const REFERENCE_FRAMERATE: f32 = 60.0;
 const PAD_MOVE_SPEED_MLT: f32 = 3.0;
 const DEFAULT_TOLERANCE: f32 = 4.0;
 const ALPHA_CHANGE: u8 = 100;
-const LIFESPAN_DECREASE: f32 = 3.0;
+const LIFESPAN_DECREASE: u8 = 3;
 const PARTICLE_SIZE: f32 = 1.0;
 const MIN_PARTICLE_QTY: usize = 25;
 const MAX_PARTICLE_QTY: usize = 50;
@@ -104,7 +106,7 @@ const HOVER_SPACE: f32 = 8.0;
 const HOVER_RAINBOW_DELTA: f32 = 0.001;
 const HOVER_RAINBOW_DISTANCE: f32 = 0.05;
 const DEATH_MAX_INIT_PARTICLE_VELOCITY: f32 = 1.75;
-const PARTICLE_VELOCITY_MULTIPLIER: f32 = 0.98;
+const PARTICLE_VELOCITY_MULTIPLIER: f32 = 0.972;
 const OBSTACLE_GRID_DIV_X: f32 = 12.0;
 const OBSTACLE_GRID_DIV_Y: f32 = 6.0;
 const OBSTACLE_POS_VARIANCE: f32 = 6.0;
@@ -318,10 +320,6 @@ impl NotPong {
         self.obstacles.push(rocket.into());
     }
 
-    fn get_alpha_change(&self, delta_time: f32) -> u8 {
-        min((self.alpha_change as f32 * delta_time) as u8, 255)
-    }
-
     fn run(&mut self) {
         let (mut rl, thread) = raylib::init()
             .title("!pong")
@@ -367,7 +365,10 @@ impl NotPong {
                 .expect("Could not load texture")
         };
 
-        rl.set_target_fps(get_monitor_refresh_rate(get_current_monitor()) as u32);
+        if !UNLIMITED_FPS {
+            rl.set_target_fps(get_monitor_refresh_rate(get_current_monitor()) as u32);
+        }
+
         rl.set_trace_log(TraceLogLevel::LOG_NONE);
 
         let mut texture = OnceCell::from(
@@ -381,13 +382,14 @@ impl NotPong {
         self.player.init(&mut self.rng);
 
         let mut rocket_sounds: HashMap<u16, SoundAlias<'_, '_>> = HashMap::new();
-        let mut last_logic_update = Instant::now();
+        let mut last_reference_frame = Instant::now();
 
         while !rl.window_should_close() {
             let delta_time = rl.get_frame_time() * REFERENCE_FRAMERATE;
-            let should_update_logic = last_logic_update.elapsed().as_secs_f32() >= REFERENCE_FRAMETIME;
-            if should_update_logic {
-                last_logic_update = Instant::now();
+            // whether the current frame maps to the reference framerate (1 / 60 secs have passed since the last one)
+            let in_reference_frame = last_reference_frame.elapsed().as_secs_f32() >= REFERENCE_FRAMETIME;
+            if in_reference_frame {
+                last_reference_frame = Instant::now();
             }
 
             let tolerance = {
@@ -401,22 +403,15 @@ impl NotPong {
             self.handle_keys(&rl);
             let mut draw = rl.begin_texture_mode(&thread, get_expect_mut!(texture));
 
-            if self.player.playing {
-                draw.draw_text(
-                    &self.player.count.to_string(), 
-                    (INTERNAL_RESOLUTION.x / 2.0) as i32, (INTERNAL_RESOLUTION.y / 2.0) as i32, 
-                    SCORE_TEXT_HEIGHT,
-                    FG
+            if in_reference_frame {
+                draw.draw_rectangle(
+                    0, 0, 
+                    INTERNAL_RESOLUTION.x as i32, INTERNAL_RESOLUTION.y as i32,  
+                    Color { r: BG.r, g: BG.g, b: BG.b, a: self.alpha_change }
                 );
             }
 
-            draw.draw_rectangle(
-                0, 0, 
-                INTERNAL_RESOLUTION.x as i32, INTERNAL_RESOLUTION.y as i32,  
-                Color { r: BG.r, g: BG.g, b: BG.b, a: self.get_alpha_change(delta_time) }
-            );
-
-            if self.player.is_dead(&mut self.rng) {
+            if self.player.is_dead(&self.left_pad, &self.right_pad, tolerance, &mut self.rng) {
                 for (_, sound) in rocket_sounds.drain() {
                     sound.stop();
                 }
@@ -426,6 +421,13 @@ impl NotPong {
             }
 
             if self.player.playing {
+                draw.draw_text(
+                    &self.player.count.to_string(), 
+                    (INTERNAL_RESOLUTION.x / 2.0) as i32, (INTERNAL_RESOLUTION.y / 2.0) as i32, 
+                    SCORE_TEXT_HEIGHT,
+                    FG
+                );
+                
                 draw.draw_rectangle(
                     SPRINT_LINE_POS.x as i32, 
                     SPRINT_LINE_POS.y as i32, 
@@ -444,7 +446,7 @@ impl NotPong {
                 self.left_pad.update(delta_time, &mut draw);
                 self.right_pad.update(delta_time, &mut draw);
 
-                if self.left_pad.collides(self.player.pos, tolerance, &mut self.rng) || self.right_pad.collides(self.player.pos, tolerance, &mut self.rng) {
+                if self.left_pad.move_if_collides(self.player.pos, tolerance, &mut self.rng) || self.right_pad.move_if_collides(self.player.pos, tolerance, &mut self.rng) {
                     self.invert(&hit_sound);
                 }
 
@@ -493,7 +495,7 @@ impl NotPong {
                         self.bomb.take();
                     }
                 } else if self.player.count >= PLAYER_COUNT_BOMB {
-                    if should_update_logic {
+                    if in_reference_frame {
                         if self.rng.random_range(0..=BOMB_PROBABILITY) < 1 {
                             // TODO: we should probably avoid the possibility of spawning the bomb directly on the player, 
                             //       but it's an advantage for them so it's fine for now
@@ -511,7 +513,7 @@ impl NotPong {
                         self.difficulty += 1;
                     }
 
-                    if should_update_logic {
+                    if in_reference_frame {
                         if ROCKETS_TEST {
                             self.make_rocket(&mut rocket_sounds, &rocket_sound);
                         } else {
@@ -535,7 +537,7 @@ impl NotPong {
                 }
 
                 for i in 0 .. self.obstacles.len() {
-                    self.obstacles[i].update(delta_time, &mut self.rng, &mut draw);
+                    self.obstacles[i].update(delta_time, in_reference_frame, &mut self.rng, &mut draw);
 
                     if !self.obstacles[i].can_collide() {
                         continue;
@@ -633,7 +635,7 @@ impl NotPong {
                 );
             }
 
-            self.player.update(delta_time, &mut self.rng, &mut draw);
+            self.player.update(delta_time, in_reference_frame, tolerance, &mut self.rng, &mut draw);
 
             drop(draw);
 
@@ -693,6 +695,10 @@ impl NotPong {
                 bounding_box.width as i32 + 1, bounding_box.height as i32 + 1, 
                 Color::BLUEVIOLET
             );
+
+            if SHOW_FPS {
+                draw.draw_fps(0, 0);
+            }
 
             self.frame_n = self.frame_n.wrapping_add(1);
         }

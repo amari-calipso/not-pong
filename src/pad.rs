@@ -96,7 +96,7 @@ impl Pad {
         );
     }
 
-    pub fn collides(&mut self, player_pos: Vector2, tolerance: f32, rng: &mut ThreadRng) -> bool {
+    pub fn collides(&self, player_pos: Vector2, tolerance: f32) -> bool {
         let r = self.pos.y .. self.pos.y + self.size.y;
 
         if self.is_left {
@@ -105,7 +105,6 @@ impl Pad {
             if (tmp - tolerance .. tmp).contains(&player_pos.x) && 
                (r.contains(&player_pos.y) || r.contains(&(player_pos.y + PLAYER_SIZE))) 
             {
-                self.move_to(rng.random_range(OBSTACLE_SAFE_ZONE.y .. INTERNAL_RESOLUTION.y - OBSTACLE_SAFE_ZONE.y - self.size.y));
                 return true;
             }
         } else {
@@ -114,11 +113,19 @@ impl Pad {
             if (self.pos.x .. self.pos.x + tolerance).contains(&player_pos_x) &&
                (r.contains(&player_pos.y) || r.contains(&(player_pos.y + PLAYER_SIZE)))
             {
-                self.move_to(rng.random_range(OBSTACLE_SAFE_ZONE.y .. INTERNAL_RESOLUTION.y - OBSTACLE_SAFE_ZONE.y - self.size.y));
                 return true;
             }
         }
 
         false
+    }
+
+    pub fn move_if_collides(&mut self, player_pos: Vector2, tolerance: f32, rng: &mut ThreadRng) -> bool {
+        if self.collides(player_pos, tolerance) {
+            self.move_to(rng.random_range(OBSTACLE_SAFE_ZONE.y .. INTERNAL_RESOLUTION.y - OBSTACLE_SAFE_ZONE.y - self.size.y));
+            true
+        } else {
+            false
+        }
     }
 }

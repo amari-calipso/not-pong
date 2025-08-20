@@ -20,7 +20,7 @@ along with !pong.  If not, see <http://www.gnu.org/licenses/>.
 use rand::{rngs::ThreadRng, Rng};
 use raylib::{color::Color, math::{Rectangle, Vector2}, prelude::RaylibDraw};
 
-use crate::{explosion::Explosion, DEFAULT_TOLERANCE, FG, GRAVITY, HOVER_RAINBOW_DELTA, HOVER_RAINBOW_DISTANCE, HOVER_SPACE, INTERNAL_RESOLUTION, JUMP_VELOCITY, DEATH_MAX_INIT_PARTICLE_VELOCITY, PLAYER_SIZE, PLAYER_VELOCITY, RAINBOW_DELTA, SPRINT_VELOCITY};
+use crate::{explosion::Explosion, pad::Pad, DEATH_MAX_INIT_PARTICLE_VELOCITY, FG, GRAVITY, HOVER_RAINBOW_DELTA, HOVER_RAINBOW_DISTANCE, HOVER_SPACE, INTERNAL_RESOLUTION, JUMP_VELOCITY, PLAYER_SIZE, PLAYER_VELOCITY, RAINBOW_DELTA, SPRINT_VELOCITY};
 
 #[derive(Debug)]
 pub struct Player {
@@ -122,7 +122,7 @@ impl Player {
         }
     }
 
-    pub fn is_dead(&mut self, rng: &mut ThreadRng) -> bool {
+    pub fn is_dead(&mut self, left_pad: &Pad, right_pad: &Pad, tolerance: f32, rng: &mut ThreadRng) -> bool {
         if self.dead {
             self.explosion.explode_with_pos(
                 self.pos, 
@@ -135,11 +135,14 @@ impl Player {
         }
 
         if self.pos.x <= 0.0 {
-            self.explosion.explode_with_pos(
-                Vector2 { x: 0.0, y: self.pos.y }, 
-                DEATH_MAX_INIT_PARTICLE_VELOCITY, 
-                false, rng
-            );
+            // avoids collision problems with low framerate
+            if !left_pad.collides(self.pos, tolerance) {
+                self.explosion.explode_with_pos(
+                    Vector2 { x: 0.0, y: self.pos.y }, 
+                    DEATH_MAX_INIT_PARTICLE_VELOCITY, 
+                    false, rng
+                );
+            }
         } else if self.pos.x + PLAYER_SIZE >= INTERNAL_RESOLUTION.x {
             self.explosion.explode_with_pos(
                 Vector2 { 
@@ -156,14 +159,17 @@ impl Player {
                 false, rng
             );
         } else if self.pos.y + PLAYER_SIZE >= INTERNAL_RESOLUTION.y {
-            self.explosion.explode_with_pos(
-                Vector2 { 
-                    x: self.pos.x, 
-                    y: INTERNAL_RESOLUTION.y - 1.0 
-                }, 
-                DEATH_MAX_INIT_PARTICLE_VELOCITY, 
-                false, rng
-            );
+            // avoids collision problems with low framerate
+            if !right_pad.collides(self.pos, tolerance) {
+                self.explosion.explode_with_pos(
+                    Vector2 { 
+                        x: self.pos.x, 
+                        y: INTERNAL_RESOLUTION.y - 1.0 
+                    }, 
+                    DEATH_MAX_INIT_PARTICLE_VELOCITY, 
+                    false, rng
+                );
+            }
         } else {
             return false;
         }
@@ -180,9 +186,9 @@ impl Player {
         }
     }
 
-    pub fn update(&mut self, delta_time: f32, rng: &mut ThreadRng, draw: &mut impl RaylibDraw) {
+    pub fn update(&mut self, delta_time: f32, in_reference_frame: bool, tolerance: f32, rng: &mut ThreadRng, draw: &mut impl RaylibDraw) {
         if self.explosion.is_alive() {
-            self.explosion.update(delta_time);
+            self.explosion.update(in_reference_frame);
             self.explosion.show(draw);
         } else {
             if self.playing {
@@ -225,7 +231,7 @@ impl Player {
                     self.velocity.y = -JUMP_VELOCITY;
                 }
 
-                if self.pos.x + PLAYER_SIZE + DEFAULT_TOLERANCE >= INTERNAL_RESOLUTION.x || self.pos.x <= DEFAULT_TOLERANCE {
+                if self.pos.x + PLAYER_SIZE + tolerance >= INTERNAL_RESOLUTION.x || self.pos.x <= tolerance {
                     self.velocity.x = -self.velocity.x;
                 }
 

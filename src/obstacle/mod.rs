@@ -34,7 +34,7 @@ pub trait Obstacle {
     fn can_collide(&self) -> bool;
 
     fn is_alive(&self) -> bool;
-    fn update(&mut self, delta_time: f32, rng: &mut ThreadRng, draw: &mut impl RaylibDraw);
+    fn update(&mut self, delta_time: f32, in_reference_frame: bool, rng: &mut ThreadRng, draw: &mut impl RaylibDraw);
     
     fn kill(&mut self);
     fn collides_object(&mut self, pos: Vector2, size: Vector2) -> bool;

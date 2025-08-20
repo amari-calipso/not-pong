@@ -88,7 +88,7 @@ impl Obstacle for Rocket {
         }
     }
 
-    fn update(&mut self, delta_time: f32, rng: &mut ThreadRng, draw: &mut impl RaylibDraw) {
+    fn update(&mut self, delta_time: f32, _in_reference_frame: bool, rng: &mut ThreadRng, draw: &mut impl RaylibDraw) {
         match self.base {
             Base::Left => {
                 self.pos.x += self.velocity * delta_time;

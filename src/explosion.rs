@@ -57,14 +57,14 @@ impl Particle {
         self.acceleration += f;
     }
 
-    pub fn update(&mut self, delta_time: f32) {
-        self.velocity *= PARTICLE_VELOCITY_MULTIPLIER;
-        self.lifespan = self.lifespan.saturating_sub((LIFESPAN_DECREASE * delta_time) as u8);
-
-        self.velocity += self.acceleration;
-        self.pos += self.velocity;
-
-        self.acceleration *= 0.0;
+    pub fn update(&mut self, in_reference_frame: bool) {
+        if in_reference_frame {
+            self.lifespan = self.lifespan.saturating_sub(LIFESPAN_DECREASE);
+            self.velocity *= PARTICLE_VELOCITY_MULTIPLIER;
+            self.velocity += self.acceleration;
+            self.pos += self.velocity;
+            self.acceleration *= 0.0;
+        }
 
         if self.pos.y >= INTERNAL_RESOLUTION.y || 
            self.pos.y < 0.0 ||
@@ -128,9 +128,9 @@ impl Explosion {
         self.explode(max_velocity, rainbow, rng);
     }
 
-    pub fn update(&mut self, delta_time: f32) {
+    pub fn update(&mut self, in_reference_frame: bool) {
         for particle in self.particles.iter_mut() {
-            particle.update(delta_time);
+            particle.update(in_reference_frame);
         }
 
         self.particles.retain(|x| x.is_alive());
