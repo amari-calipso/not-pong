@@ -172,7 +172,7 @@ dependencies = [
 
 [[package]]
 name = "not-pong"
-version = "2025.8.19"
+version = "2025.8.22"
 dependencies = [
  "enum_dispatch",
  "rand",

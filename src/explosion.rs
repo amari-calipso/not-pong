@@ -20,7 +20,7 @@ along with !pong.  If not, see <http://www.gnu.org/licenses/>.
 use rand::{rngs::ThreadRng, Rng};
 use raylib::{color::Color, math::Vector2, prelude::RaylibDraw};
 
-use crate::{FG, INTERNAL_RESOLUTION, LIFESPAN_DECREASE, MAX_PARTICLE_QTY, MIN_PARTICLE_QTY, PARTICLE_SIZE, PARTICLE_VELOCITY_MULTIPLIER};
+use crate::{FrameInfo, FG, INTERNAL_RESOLUTION, LIFESPAN_DECREASE, MAX_PARTICLE_QTY, MIN_PARTICLE_QTY, PARTICLE_SIZE, PARTICLE_VELOCITY_MULTIPLIER};
 
 #[derive(Debug, Clone)]
 pub struct Particle {
@@ -57,9 +57,13 @@ impl Particle {
         self.acceleration += f;
     }
 
-    pub fn update(&mut self, in_reference_frame: bool) {
-        if in_reference_frame {
-            self.lifespan = self.lifespan.saturating_sub(LIFESPAN_DECREASE);
+    pub fn update(&mut self, frame_info: FrameInfo) {
+        if frame_info.in_reference_frame {
+            self.lifespan = self.lifespan.saturating_sub(
+                ((LIFESPAN_DECREASE * frame_info.clamped_delta_time) as u32)
+                    .try_into().unwrap_or(self.lifespan)
+            );
+
             self.velocity *= PARTICLE_VELOCITY_MULTIPLIER;
             self.velocity += self.acceleration;
             self.pos += self.velocity;
@@ -128,9 +132,9 @@ impl Explosion {
         self.explode(max_velocity, rainbow, rng);
     }
 
-    pub fn update(&mut self, in_reference_frame: bool) {
+    pub fn update(&mut self, frame_info: FrameInfo) {
         for particle in self.particles.iter_mut() {
-            particle.update(in_reference_frame);
+            particle.update(frame_info);
         }
 
         self.particles.retain(|x| x.is_alive());

@@ -1,6 +1,6 @@
 [package]
 name = "not-pong"
-version = "2025.8.19"
+version = "2025.8.22"
 edition = "2024"
 
 [profile.release]

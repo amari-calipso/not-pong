@@ -20,7 +20,7 @@ along with !pong.  If not, see <http://www.gnu.org/licenses/>.
 use rand::{rngs::ThreadRng, seq::IteratorRandom, Rng};
 use raylib::{math::Vector2, prelude::RaylibDraw};
 
-use crate::{obstacle::{AnyObstacle, Obstacle}, utils::{square_collides, vec2}, FG, INTERNAL_RESOLUTION, MAX_OBSTACLE_SIZE, MAX_ROCKET_SPEED, MIN_OBSTACLE_SIZE, MIN_ROCKET_SPEED, ROCKET_SHAKE};
+use crate::{obstacle::{AnyObstacle, Obstacle}, utils::{square_collides, vec2}, FrameInfo, FG, INTERNAL_RESOLUTION, MAX_OBSTACLE_SIZE, MAX_ROCKET_SPEED, MIN_OBSTACLE_SIZE, MIN_ROCKET_SPEED, ROCKET_SHAKE};
 
 #[derive(Debug)]
 pub enum Base {
@@ -59,10 +59,6 @@ impl Rocket {
 }
 
 impl Obstacle for Rocket {
-    fn can_collide(&self) -> bool {
-        true
-    }
-    
     fn pos(&self) -> Vector2 {
         self.pos
     }
@@ -88,10 +84,10 @@ impl Obstacle for Rocket {
         }
     }
 
-    fn update(&mut self, delta_time: f32, _in_reference_frame: bool, rng: &mut ThreadRng, draw: &mut impl RaylibDraw) {
+    fn update(&mut self, frame_info: FrameInfo, rng: &mut ThreadRng, draw: &mut impl RaylibDraw) {
         match self.base {
             Base::Left => {
-                self.pos.x += self.velocity * delta_time;
+                self.pos.x += self.velocity * frame_info.delta_time;
 
                 let mut draw_pos = self.pos;
                 draw_pos.y += rng.random_range(-ROCKET_SHAKE..=ROCKET_SHAKE);
@@ -110,7 +106,7 @@ impl Obstacle for Rocket {
                 );
             }
             Base::Right => {
-                self.pos.x -= self.velocity * delta_time;
+                self.pos.x -= self.velocity * frame_info.delta_time;
 
                 let mut draw_pos = self.pos;
                 draw_pos.y += rng.random_range(-ROCKET_SHAKE..=ROCKET_SHAKE);
@@ -129,7 +125,7 @@ impl Obstacle for Rocket {
                 );
             }
             Base::Top => {
-                self.pos.y += self.velocity * delta_time;
+                self.pos.y += self.velocity * frame_info.delta_time;
 
                 let mut draw_pos = self.pos;
                 draw_pos.x += rng.random_range(-ROCKET_SHAKE..=ROCKET_SHAKE);
@@ -148,7 +144,7 @@ impl Obstacle for Rocket {
                 );
             }
             Base::Bottom => {
-                self.pos.y -= self.velocity * delta_time;
+                self.pos.y -= self.velocity * frame_info.delta_time;
 
                 let mut draw_pos = self.pos;
                 draw_pos.x += rng.random_range(-ROCKET_SHAKE..=ROCKET_SHAKE);

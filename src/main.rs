@@ -36,6 +36,7 @@ const NOCLIP: bool = ROCKETS_TEST || COLLISION_TEST || false; // default: false
 const ROCKETS: bool = true; // default: true
 const SHOW_FPS: bool = false; // default: false
 const UNLIMITED_FPS: bool = false; // default: false
+const MAX_FPS: Option<u32> = None; // default: None
 
 const INTRO_TEXT: &str = "JUMP TO START";
 const INTRO_TEXT_HEIGHT: i32 = 10;
@@ -70,7 +71,7 @@ const REFERENCE_FRAMERATE: f32 = 60.0;
 const PAD_MOVE_SPEED_MLT: f32 = 3.0;
 const DEFAULT_TOLERANCE: f32 = 4.0;
 const ALPHA_CHANGE: u8 = 100;
-const LIFESPAN_DECREASE: u8 = 3;
+const LIFESPAN_DECREASE: f32 = 3.0;
 const PARTICLE_SIZE: f32 = 1.0;
 const MIN_PARTICLE_QTY: usize = 25;
 const MAX_PARTICLE_QTY: usize = 50;
@@ -98,7 +99,7 @@ const SPRINT_LINE_MIN_LENGTH: f32 = 2.0;
 const SPRINT_LINE_MAX_LENGTH: f32 = 50.0;
 const SPRINT_LINE_WIDTH: f32 = 1.0;
 const SPRINT_COOLDOWN: f32 = 30.0;
-const HIT_COOLDOWN: f32 = 5.0;
+const HIT_COOLDOWN: f32 = 30.0;
 const LIGHTNING_SIZE: i32 = 7;
 const JUMP_VELOCITY: f32 = 2.5;
 const RAINBOW_DELTA: f32 = 0.01;
@@ -132,6 +133,15 @@ mod obstacle;
 mod dither;
 mod obstacle_grid;
 mod bomb;
+
+#[derive(Clone, Copy)]
+pub struct FrameInfo {
+    delta_time: f32,
+    clamped_delta_time: f32,
+    tolerance: f32,
+    /// Whether the current frame maps to the reference framerate (1 / 60 secs have passed since the last one)
+    in_reference_frame: bool
+}
 
 #[derive(Debug)]
 struct NotPong {
@@ -366,7 +376,13 @@ impl NotPong {
         };
 
         if !UNLIMITED_FPS {
-            rl.set_target_fps(get_monitor_refresh_rate(get_current_monitor()) as u32);
+            rl.set_target_fps({
+                if let Some(fps) = MAX_FPS {
+                    fps
+                } else {
+                    get_monitor_refresh_rate(get_current_monitor()) as u32
+                }
+            });
         }
 
         rl.set_trace_log(TraceLogLevel::LOG_NONE);
@@ -386,24 +402,30 @@ impl NotPong {
 
         while !rl.window_should_close() {
             let delta_time = rl.get_frame_time() * REFERENCE_FRAMERATE;
-            // whether the current frame maps to the reference framerate (1 / 60 secs have passed since the last one)
-            let in_reference_frame = last_reference_frame.elapsed().as_secs_f32() >= REFERENCE_FRAMETIME;
-            if in_reference_frame {
-                last_reference_frame = Instant::now();
-            }
 
-            let tolerance = {
-                if delta_time > 1.0 {
-                    DEFAULT_TOLERANCE * delta_time
+            let clamped_delta_time = {
+                if delta_time < 1.0 {
+                    1.0
                 } else {
-                    DEFAULT_TOLERANCE
+                    delta_time
                 }
             };
+
+            let frame_info = FrameInfo {
+                delta_time,
+                clamped_delta_time,
+                tolerance: DEFAULT_TOLERANCE * clamped_delta_time,
+                in_reference_frame: last_reference_frame.elapsed().as_secs_f32() >= REFERENCE_FRAMETIME,
+            };
+
+            if frame_info.in_reference_frame {
+                last_reference_frame = Instant::now();
+            }
 
             self.handle_keys(&rl);
             let mut draw = rl.begin_texture_mode(&thread, get_expect_mut!(texture));
 
-            if in_reference_frame {
+            if frame_info.in_reference_frame {
                 draw.draw_rectangle(
                     0, 0, 
                     INTERNAL_RESOLUTION.x as i32, INTERNAL_RESOLUTION.y as i32,  
@@ -411,7 +433,7 @@ impl NotPong {
                 );
             }
 
-            if self.player.is_dead(&self.left_pad, &self.right_pad, tolerance, &mut self.rng) {
+            if self.player.is_dead(&self.left_pad, &self.right_pad, frame_info.tolerance, &mut self.rng) {
                 for (_, sound) in rocket_sounds.drain() {
                     sound.stop();
                 }
@@ -446,7 +468,9 @@ impl NotPong {
                 self.left_pad.update(delta_time, &mut draw);
                 self.right_pad.update(delta_time, &mut draw);
 
-                if self.left_pad.move_if_collides(self.player.pos, tolerance, &mut self.rng) || self.right_pad.move_if_collides(self.player.pos, tolerance, &mut self.rng) {
+                if self.left_pad.move_if_collides(self.player.pos, frame_info.tolerance, &mut self.rng) || 
+                   self.right_pad.move_if_collides(self.player.pos, frame_info.tolerance, &mut self.rng) 
+                {
                     self.invert(&hit_sound);
                 }
 
@@ -495,8 +519,9 @@ impl NotPong {
                         self.bomb.take();
                     }
                 } else if self.player.count >= PLAYER_COUNT_BOMB {
-                    if in_reference_frame {
-                        if self.rng.random_range(0..=BOMB_PROBABILITY) < 1 {
+                    if frame_info.in_reference_frame {
+                        let probability = (BOMB_PROBABILITY as f32 / clamped_delta_time).round() as u16;
+                        if self.rng.random_range(0..=probability) < 1 {
                             // TODO: we should probably avoid the possibility of spawning the bomb directly on the player, 
                             //       but it's an advantage for them so it's fine for now
                             self.bomb = Some(Bomb::new(Vector2 { 
@@ -513,12 +538,13 @@ impl NotPong {
                         self.difficulty += 1;
                     }
 
-                    if in_reference_frame {
+                    if frame_info.in_reference_frame {
                         if ROCKETS_TEST {
                             self.make_rocket(&mut rocket_sounds, &rocket_sound);
                         } else {
+                            let probability = (OBSTACLE_PROBABILITY as f32 / clamped_delta_time).round() as u16;
                             if self.rng.random_bool(0.5) {
-                                if self.rng.random_range(0..=OBSTACLE_PROBABILITY) < self.difficulty {
+                                if self.rng.random_range(0..=probability) < self.difficulty {
                                     if let Some((id, pos)) = self.obstacle_grid.alloc(self.player.pos, &mut self.rng) {
                                         self.obstacles.push(Rock::new(&mut self.rng, id, pos).into());
                                     } else if ROCKETS { // if you can't allocate a rock, make a rocket instead
@@ -527,7 +553,7 @@ impl NotPong {
                                 }
                             } else {
                                 if ROCKETS {
-                                    if self.rng.random_range(0..=OBSTACLE_PROBABILITY) < self.difficulty {
+                                    if self.rng.random_range(0..=probability) < self.difficulty {
                                         self.make_rocket(&mut rocket_sounds, &rocket_sound);
                                     }
                                 }
@@ -537,7 +563,7 @@ impl NotPong {
                 }
 
                 for i in 0 .. self.obstacles.len() {
-                    self.obstacles[i].update(delta_time, in_reference_frame, &mut self.rng, &mut draw);
+                    self.obstacles[i].update(frame_info, &mut self.rng, &mut draw);
 
                     if !self.obstacles[i].can_collide() {
                         continue;
@@ -635,7 +661,7 @@ impl NotPong {
                 );
             }
 
-            self.player.update(delta_time, in_reference_frame, tolerance, &mut self.rng, &mut draw);
+            self.player.update(frame_info, &mut self.rng, &mut draw);
 
             drop(draw);
 

@@ -20,7 +20,7 @@ along with !pong.  If not, see <http://www.gnu.org/licenses/>.
 use rand::{rngs::ThreadRng, Rng};
 use raylib::{color::Color, math::{Rectangle, Vector2}, prelude::RaylibDraw};
 
-use crate::{explosion::Explosion, pad::Pad, DEATH_MAX_INIT_PARTICLE_VELOCITY, FG, GRAVITY, HOVER_RAINBOW_DELTA, HOVER_RAINBOW_DISTANCE, HOVER_SPACE, INTERNAL_RESOLUTION, JUMP_VELOCITY, PLAYER_SIZE, PLAYER_VELOCITY, RAINBOW_DELTA, SPRINT_VELOCITY};
+use crate::{explosion::Explosion, pad::Pad, FrameInfo, DEATH_MAX_INIT_PARTICLE_VELOCITY, FG, GRAVITY, HOVER_RAINBOW_DELTA, HOVER_RAINBOW_DISTANCE, HOVER_SPACE, INTERNAL_RESOLUTION, JUMP_VELOCITY, PLAYER_SIZE, PLAYER_VELOCITY, RAINBOW_DELTA, SPRINT_VELOCITY};
 
 #[derive(Debug)]
 pub struct Player {
@@ -186,17 +186,17 @@ impl Player {
         }
     }
 
-    pub fn update(&mut self, delta_time: f32, in_reference_frame: bool, tolerance: f32, rng: &mut ThreadRng, draw: &mut impl RaylibDraw) {
+    pub fn update(&mut self, frame_info: FrameInfo, rng: &mut ThreadRng, draw: &mut impl RaylibDraw) {
         if self.explosion.is_alive() {
-            self.explosion.update(in_reference_frame);
+            self.explosion.update(frame_info);
             self.explosion.show(draw);
         } else {
             if self.playing {
                 if self.sprinting {
-                    self.pos.x += self.dir(SPRINT_VELOCITY) * delta_time;
+                    self.pos.x += self.dir(SPRINT_VELOCITY) * frame_info.delta_time;
                 } else {
-                    self.velocity += GRAVITY * delta_time;
-                    self.pos += self.velocity * delta_time;
+                    self.velocity += GRAVITY * frame_info.delta_time;
+                    self.pos += self.velocity * frame_info.delta_time;
                 }
 
                 if self.sprinting {
@@ -206,7 +206,7 @@ impl Player {
                         Color::color_from_hsv(self.rainbow_cnt * 360.0, 1.0, 1.0)
                     );
 
-                    self.rainbow_cnt += RAINBOW_DELTA * delta_time;
+                    self.rainbow_cnt += RAINBOW_DELTA * frame_info.delta_time;
                     if self.rainbow_cnt > 1.0 {
                         self.rainbow_cnt = 0.0;
                     }
@@ -231,12 +231,12 @@ impl Player {
                     self.velocity.y = -JUMP_VELOCITY;
                 }
 
-                if self.pos.x + PLAYER_SIZE + tolerance >= INTERNAL_RESOLUTION.x || self.pos.x <= tolerance {
+                if self.pos.x + PLAYER_SIZE + frame_info.tolerance >= INTERNAL_RESOLUTION.x || self.pos.x <= frame_info.tolerance {
                     self.velocity.x = -self.velocity.x;
                 }
 
-                self.velocity += GRAVITY * delta_time;
-                self.pos += self.velocity * delta_time;
+                self.velocity += GRAVITY * frame_info.delta_time;
+                self.pos += self.velocity * frame_info.delta_time;
 
                 let mut color0 = Color::color_from_hsv(self.rainbow_cnt * 360.0, 1.0, 1.0);
                 let mut color1 = Color::color_from_hsv((self.rainbow_cnt - HOVER_RAINBOW_DISTANCE) * 360.0, 1.0, 1.0);
@@ -263,7 +263,7 @@ impl Player {
                     color0, color1, color2, color3,
                 );
 
-                self.rainbow_cnt += HOVER_RAINBOW_DELTA * delta_time;
+                self.rainbow_cnt += HOVER_RAINBOW_DELTA * frame_info.delta_time;
                 if self.rainbow_cnt > 1.0 {
                     self.rainbow_cnt = 0.0;
                 }

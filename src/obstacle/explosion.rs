@@ -20,7 +20,7 @@ along with !pong.  If not, see <http://www.gnu.org/licenses/>.
 use rand::rngs::ThreadRng;
 use raylib::{math::Vector2, prelude::RaylibDraw};
 
-use crate::{explosion::Explosion, obstacle::{AnyObstacle, Obstacle}};
+use crate::{explosion::Explosion, obstacle::{AnyObstacle, Obstacle}, FrameInfo};
 
 #[derive(Debug)]
 pub struct ObstacleExplosion(pub Explosion);
@@ -41,8 +41,8 @@ impl Obstacle for ObstacleExplosion {
         self.0.is_alive()
     }
 
-    fn update(&mut self, _delta_time: f32, in_reference_frame: bool, _rng: &mut ThreadRng, draw: &mut impl RaylibDraw) {
-        self.0.update(in_reference_frame);
+    fn update(&mut self, frame_info: FrameInfo, _rng: &mut ThreadRng, draw: &mut impl RaylibDraw) {
+        self.0.update(frame_info);
         self.0.show(draw);
     }
 
