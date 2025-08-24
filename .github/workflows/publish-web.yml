@@ -23,9 +23,6 @@ jobs:
           with:
             rust-version: stable
 
-        - name: Install WASM target
-          run: rustup target add wasm32-unknown-emscripten
-        
         - uses: actions/checkout@v4
           with:
             ref: github-pages

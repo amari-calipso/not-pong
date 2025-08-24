@@ -100,6 +100,14 @@ fn copy_file_from(base_dir: &PathBuf, filename: &str, dist: &PathBuf) -> Result<
 }
 
 fn release_wasm() -> Result<PathBuf, Error> {
+    let mut command = Command::new("rustup");
+    command.args(["target", "add", WASM_TARGET]);
+
+    println!("Ensuring {} target is installed", WASM_TARGET);
+    if !command.status()?.success() {
+        return Err(Error::other("Could not install target"));
+    }
+
     unsafe {
         env::set_var(
             "EMCC_CFLAGS", 
