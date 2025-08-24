@@ -26,6 +26,7 @@ If you just want to play the game, head over to [releases](https://github.com/am
 If you're running or building from source, make sure that your machine has installed:
 - [raylib's dependencies](https://github.com/raysan5/raylib/wiki);
 - [raylib-rs's dependencies](https://github.com/raylib-rs/raylib-rs?tab=readme-ov-file#build-dependencies);
+    - Note that release candidate versions of [CMake](https://cmake.org/), marked as "rc", might not work.
 - If you're compiling for web platforms, [Emscripten](https://emscripten.org/).
 
 To run or build from source, clone the repository first, then you have a few options:
