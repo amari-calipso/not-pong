@@ -42,21 +42,7 @@ fn get_filename(target: &Option<String>) -> &str {
     }
 }
 
-fn release(args: &mut Vec<String>, args_map: &mut HashMap<String, usize>) -> Result<(), Error> {
-    let target = {
-        if let Some(idx) = args_map.get("--target") {
-            args.remove(*idx);
-
-            if *idx >= args.len() {
-                return Err(Error::other("Target argument was supplied but no target was specified"));
-            }
-
-            Some(args.remove(*idx))
-        } else {
-            None
-        }
-    };
-
+fn release(target: &Option<String>) -> Result<(), Error> {
     let mut command = Command::new("cargo");
     command.args(["build", "--release"]);
 
@@ -211,10 +197,25 @@ fn main() -> Result<(), Error> {
     let mut args: Vec<String> = env::args().collect();
     let mut args_map: HashMap<String, usize> = args.iter().enumerate().map(|(i, x)| (x.clone(), i)).collect();
 
+    // only effective for --release: specify custom target
+    let target = {
+        if let Some(idx) = args_map.get("--target") {
+            args.remove(*idx);
+
+            if *idx >= args.len() {
+                return Err(Error::other("Target argument was supplied but no target was specified"));
+            }
+
+            Some(args.remove(*idx))
+        } else {
+            None
+        }
+    };
+
     commands! {
         (args, args_map);
         
-        "--release"      -> release(&mut args, &mut args_map)?
+        "--release"      -> release(&target)?
         "--release-wasm" -> release_wasm()?
         "--run-wasm"     -> run_wasm()?
     };
